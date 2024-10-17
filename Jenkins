@@ -1,1 +1,39 @@
-
+pipeline {
+    agent any
+    
+    environment {
+    dockerHubUser = 'ahmshaheer' // Replace with your actual Docker Hub username
+    }   
+    
+    stages {
+        stage('git checking') {
+            steps {
+                git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/ahmshaheer/flaskapp-Jenkins-Docker'
+            }
+        }
+        
+        stage('Docker Login and Build') {
+            steps {
+                withDockerRegistry(credentialsId: 'dockerpersonal-cred',url: 'https://index.docker.io/v1/') {
+                sh 'docker build -t flaskappjenkins .'
+                }
+            }
+        }
+        
+        stage("push"){
+            steps{
+                withCredentials([usernamePassword(credentialsId:"dockerpersonal-cred",passwordVariable:"dockerHubPass",usernameVariable:"dockerHubUser")]){
+                sh "docker login -u ${env.dockerHubUser} -p ${env.dockerHubPass}"
+                sh "docker tag flaskappjenkins ${env.dockerHubUser}/flaskappjenkins:latest"
+                sh "docker push ${env.dockerHubUser}/flaskappjenkins:latest"
+                }
+            }
+        }
+        
+        stage("running on port 8000"){
+            steps{
+                sh "docker run -d -p 8000:8000 ${dockerHubUser}/flaskappjenkins:latest"
+            }
+        }
+    }
+}
